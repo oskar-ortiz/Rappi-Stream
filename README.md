@@ -70,4 +70,4 @@ Los contratos de mensajes y archivos compartidos se rigen por [docs/flujo-de-tra
 
 ## Estado del repositorio
 
-El repositorio existente se mantuvo con su visibilidad actual (público); no se creó otro repositorio ni se cambió su configuración de privacidad. Las contraseñas en `.env.example` son marcadores de desarrollo y deben sustituirse localmente. La protección de ramas y el estado del CI se documentan en la guía de trabajo y deben confirmarse después de configurar GitHub.
+El repositorio existente se mantuvo con su visibilidad actual (público); no se creó otro repositorio ni se cambió su configuración de privacidad. `dev` es la rama por defecto; `dev` y `main` requieren PR, una aprobación y el check `verify`, y no permiten force-push ni borrado. `dev` exige ramas actualizadas y conversaciones resueltas. GitHub no permite restringir push a usuarios en este repositorio personal; el detalle está en la guía de trabajo. Las contraseñas en `.env.example` son marcadores de desarrollo y deben sustituirse localmente.

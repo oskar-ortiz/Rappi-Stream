@@ -39,7 +39,9 @@ Solo la persona encargada del repositorio (`@oskar-ortiz`) debe modificar direct
 
 ## Protección de ramas
 
-La configuración pretendida es PR obligatorio, una aprobación, CI requerido (`verify`), sin force-push ni borrado; `dev` requiere rama actualizada y conversaciones resueltas. En `main` se restringe el push a `@oskar-ortiz` si la API lo permite para este repositorio personal. `enforce_admins` queda desactivado mientras el propietario sea el único colaborador.
+La protección activa de `dev` exige PR, una aprobación, check `verify`, rama actualizada y conversaciones resueltas; también bloquea force-push y borrado. `main` exige PR, una aprobación y check `verify`, y bloquea force-push y borrado. `enforce_admins` está desactivado mientras el propietario sea el único colaborador.
+
+La restricción de push de `main` **no pudo aplicarse**: GitHub respondió HTTP 422 (`Only organization repositories can have users and team restrictions`) porque el repositorio pertenece a una cuenta personal. La regla de `main` quedó activa sin restricciones de usuario; agregarla requiere migrar a una organización o una capacidad futura de GitHub para repositorios personales.
 
 El estado efectivo debe consultarse con:
 
@@ -69,7 +71,23 @@ $body = @{
 $body | gh api --method PUT repos/oskar-ortiz/Rappi-Stream/branches/dev/protection --input -
 ```
 
-Para `main`, se usa el mismo esquema, con `strict = $false`, sin exigir conversación resuelta; cuando sea compatible, la propiedad `restrictions` debe permitir solo a `oskar-ortiz`.
+Para recrear la protección efectiva actual de `main` (sin restricción de usuario disponible):
+
+```powershell
+$body = @{
+  required_status_checks = @{ strict = $false; contexts = @("verify") }
+  enforce_admins = $false
+  required_pull_request_reviews = @{
+    dismiss_stale_reviews = $false
+    require_code_owner_reviews = $false
+    required_approving_review_count = 1
+  }
+  restrictions = $null
+  allow_force_pushes = $false
+  allow_deletions = $false
+} | ConvertTo-Json -Depth 8
+$body | gh api --method PUT repos/oskar-ortiz/Rappi-Stream/branches/main/protection --input -
+```
 
 ## Producción
 
