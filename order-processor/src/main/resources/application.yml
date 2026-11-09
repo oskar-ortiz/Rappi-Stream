@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: order-processor
+  main:
+    web-application-type: none
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:rappi}
+    password: ${SPRING_RABBITMQ_PASSWORD:change-me}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/rappistream}
+    username: ${SPRING_DATASOURCE_USERNAME:rappi}
+    password: ${SPRING_DATASOURCE_PASSWORD:change-me}
+  jpa:
+    hibernate:
+      ddl-auto: validate
