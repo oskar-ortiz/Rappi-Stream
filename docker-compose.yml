@@ -1,0 +1,199 @@
+name: ${COMPOSE_PROJECT_NAME:-rappi-stream}
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.5
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT:-2181}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME:-2000}
+      ZOOKEEPER_4LW_COMMANDS_WHITELIST: ruok
+    ports:
+      - "${ZOOKEEPER_CLIENT_PORT:-2181}:${ZOOKEEPER_CLIENT_PORT:-2181}"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "cub zk-ready localhost ${ZOOKEEPER_CLIENT_PORT:-2181} 10"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.5
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID:-1}
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:${ZOOKEEPER_CLIENT_PORT:-2181}
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:${KAFKA_INTERNAL_PORT:-29092},PLAINTEXT_HOST://0.0.0.0:${KAFKA_EXTERNAL_PORT:-9092}
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:${KAFKA_INTERNAL_PORT:-29092},PLAINTEXT_HOST://localhost:${KAFKA_EXTERNAL_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_REPLICATION_FACTOR:-1}
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: ${KAFKA_REPLICATION_FACTOR:-1}
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports:
+      - "${KAFKA_EXTERNAL_PORT:-9092}:${KAFKA_EXTERNAL_PORT:-9092}"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:${KAFKA_INTERNAL_PORT:-29092} --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 768M
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.5
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-order_events}
+      KAFKA_PARTITIONS: ${KAFKA_PARTITIONS:-3}
+      KAFKA_REPLICATION_FACTOR: ${KAFKA_REPLICATION_FACTOR:-1}
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    volumes:
+      - ./infra/kafka/create-topics.sh:/scripts/create-topics.sh:ro
+    networks:
+      - rappi-stream-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-rappi}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - ./infra/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./infra/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+
+  postgres-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rappistream}
+      POSTGRES_USER: ${POSTGRES_USER:-rappi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+
+networks:
+  rappi-stream-network:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-network
+    driver: bridge
+    internal: true
+
+volumes:
+  zookeeper-data:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-zookeeper-data
+  zookeeper-log:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-zookeeper-log
+  kafka-data:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-kafka-data
+  rabbitmq-data:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-rabbitmq-data
+  postgres-data:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-postgres-data
+
+# Add application services only after implementing their behavior.
+# Example API service:
+#   order-api:
+#     build:
+#       context: .
+#       dockerfile: order-api/Dockerfile
+#       args:
+#         MODULE: order-api
+#     depends_on:
+#       kafka:
+#         condition: service_healthy
+#       rabbitmq:
+#         condition: service_healthy
+#       postgres-db:
+#         condition: service_healthy
+#     environment:
+#       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+#       SPRING_RABBITMQ_HOST: rabbitmq
+#       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
+#       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+#     networks:
+#       - rappi-stream-network
+#     deploy:
+#       resources:
+#         limits:
+#           cpus: "0.50"
+#           memory: 384M
+#
+# Example worker scaling:
+#   sms-worker:
+#     build:
+#       context: .
+#       dockerfile: sms-worker/Dockerfile
+#       args:
+#         MODULE: sms-worker
+#     depends_on:
+#       rabbitmq:
+#         condition: service_healthy
+#     networks:
+#       - rappi-stream-network
+#     deploy:
+#       replicas: 2
+#       resources:
+#         limits:
+#           cpus: "0.50"
+#           memory: 384M
