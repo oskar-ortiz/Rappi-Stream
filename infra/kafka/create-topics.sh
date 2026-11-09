@@ -13,3 +13,4 @@ kafka-topics \
   --topic "$KAFKA_TOPIC" \
   --partitions "$KAFKA_PARTITIONS" \
   --replication-factor "$KAFKA_REPLICATION_FACTOR"
+

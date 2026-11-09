@@ -17,7 +17,7 @@ services:
     networks:
       - rappi-stream-network
     healthcheck:
-      test: ["CMD-SHELL", "cub zk-ready localhost ${ZOOKEEPER_CLIENT_PORT:-2181} 10"]
+      test: ["CMD-SHELL", "cub zk-ready localhost:${ZOOKEEPER_CLIENT_PORT:-2181} 10"]
       interval: 10s
       timeout: 5s
       retries: 10
