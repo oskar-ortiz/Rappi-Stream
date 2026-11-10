@@ -17,7 +17,7 @@ El repositorio organiza la plataforma como ocho aplicaciones Spring Boot indepen
 
 ## Infraestructura y camino de datos
 
-RabbitMQ transporta el comando de creación de pedido por `new_orders_queue` y los mensajes de notificación por el exchange topic `notifications`. Kafka mantiene el registro de eventos `order_events`, particionado por `order_id`. PostgreSQL aloja el esquema `rappi`, que se crea al iniciar la base; las tablas se incorporarán con las entidades JPA en una fase posterior.
+El endpoint `POST /order` de `order-api` recibe solicitudes JSON en el puerto host `ORDER_API_PORT` (8082 por defecto, URL local `http://localhost:8082/order`), valida el request y publica `OrderCreatedCommand` en `new_orders_queue` antes de responder `202`. RabbitMQ transporta ese comando por su exchange por defecto y los mensajes de notificación por el exchange topic `notifications`. Kafka mantiene el registro de eventos `order_events`, particionado por `order_id`. PostgreSQL aloja el esquema `rappi`, que se crea al iniciar la base; las tablas se incorporarán con las entidades JPA en una fase posterior.
 
 En local, Docker Compose levanta ZooKeeper, Kafka, RabbitMQ, PostgreSQL, `dashboard-backend` y `dashboard-aggregator`. `kafka-init` crea el topic al estar Kafka saludable. `rabbitmq-init` aplica las colas y bindings después de que RabbitMQ esté saludable, para conservar el usuario definido por entorno. El aggregator busca el inicio de cada partición en cada asignación y reconstruye una vista idempotente en memoria; envía snapshots al backend por `/ws/ingest`. El backend actualiza su snapshot y publica por `/ws/dashboard`; `GET /api/orders` entrega el estado vigente a clientes tardíos. El dashboard del navegador se sirve en `/`.
 

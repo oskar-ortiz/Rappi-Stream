@@ -45,6 +45,8 @@ Los otros seis servicios están disponibles bajo el perfil `full`. Se mantienen 
 docker compose --profile full up -d --build
 ```
 
+La API de entrada de pedidos se publica en `http://localhost:8082/order` (`ORDER_API_PORT`, perfil `full`). El contrato del request, las respuestas y el comando RabbitMQ está en [docs/contratos.md — API REST: POST /order](docs/contratos.md#api-rest-post-order).
+
 Los servicios con Actuator usan `/actuator/health`. Los esqueletos de las Personas A/B que todavía no incluyen Actuator usan `kill -0 1` como healthcheck de proceso; esto confirma que la JVM sigue viva, no que la lógica de negocio esté lista. Como aún no tienen consumidores/listeners que mantengan vivo el proceso, algunos terminan al cerrar el contexto Spring y Compose los reinicia. Sus dependencias de infraestructura sí se esperan healthy mediante `depends_on`; al implementar esos módulos, sus responsables deben validar que el proceso quede estable.
 
 Para validar la integración del dashboard con tres pedidos de humo (requiere Node.js con WebSocket global), inicia primero el cliente en una terminal:
