@@ -21,6 +21,7 @@ Usa Conventional Commits en inglés: `feat`, `fix`, `docs`, `chore`, `test`, `re
 
 1. Trabaja únicamente en tu rama asignada.
 2. Ejecuta `mvn -B clean verify`; si cambias infraestructura, valida además `docker compose config`.
+   Para cambios del dashboard, valida el runtime con `docker compose up -d --build` y los scripts de humo descritos en el README.
 3. Publica tu rama y abre un PR hacia `dev`.
 4. Completa la plantilla, vincula el issue correspondiente y solicita revisión.
 5. Integra mediante squash cuando las verificaciones requeridas pasen y las conversaciones estén resueltas.
@@ -34,6 +35,7 @@ Solo la persona encargada del repositorio (`@oskar-ortiz`) debe modificar direct
 - Se conservó el repositorio existente `oskar-ortiz/Rappi-Stream`; no se creó otro ni se modificó su visibilidad.
 - La línea Spring Boot está fijada en `3.2.12`; las dependencias se administran mediante su BOM.
 - El topic se crea mediante el servicio efímero `kafka-init`; los datos se guardan en volúmenes con nombre y `docker compose down` no los elimina.
+- Compose levanta por defecto infraestructura y los dos servicios implementados del dashboard. Usa el perfil `full` para iniciar los seis servicios aún sin lógica funcional.
 - `.env.example` contiene únicamente credenciales marcadoras `change-me`; `.env` se excluye de Git.
 - CODEOWNERS asigna provisionalmente la propiedad a `@oskar-ortiz`; los usuarios reales de Persona A/B no se inventan.
 

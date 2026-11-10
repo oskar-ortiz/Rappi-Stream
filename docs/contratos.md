@@ -37,6 +37,35 @@ Todos los mensajes son records inmutables, serializados como JSON con nombres `s
 }
 ```
 
+### Estados de la vista del dashboard
+
+El aggregator materializa los eventos con esta correspondencia:
+
+| Evento Kafka | Estado visible |
+|---|---|
+| `DRIVER_ASSIGNED` | `EN_CAMINO` |
+| `DRIVER_ARRIVING` | `LLEGANDO` |
+| `ORDER_DELIVERED` | `ENTREGADO` |
+
+El primer evento de cada pedido debe ser `DRIVER_ASSIGNED`; los siguientes deben respetar ese orden y no repetirse. Una transición inválida se registra y se ignora sin detener el consumidor.
+
+> **Pendiente de alineación — Persona A:** confirmar y alinear estos estados con la entidad `Pedido` de `order-api`/`order-processor` antes de implementar persistencia o cambiar el ciclo de vida del dominio.
+
+### Actualización WebSocket del dashboard
+
+El aggregator envía cada snapshot consolidado a `dashboard-backend` por el WebSocket interno `/ws/ingest`. El backend difunde el mismo record JSON a `/ws/dashboard` y también lo devuelve en `GET /api/orders`.
+
+```json
+{
+  "order_id": "order-123",
+  "status": "EN_CAMINO",
+  "driver_id": "driver-456",
+  "timestamp": "2026-01-15T12:30:00Z"
+}
+```
+
+Los valores de `status` son `EN_CAMINO`, `LLEGANDO` y `ENTREGADO`. El backend conserva el timestamp más reciente por pedido y entrega el snapshot existente a cada nuevo cliente WebSocket.
+
 ## RabbitMQ
 
 | Tipo | Nombre | Detalle |
