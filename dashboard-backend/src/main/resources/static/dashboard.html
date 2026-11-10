@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rappi-Stream | Dashboard de pedidos</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --background: #f4f6fb;
+      --surface: #fff;
+      --text: #172033;
+      --muted: #64748b;
+      --border: #dce2ed;
+      --accent: #6d4aff;
+      --green-bg: #dcfce7;
+      --green: #166534;
+      --yellow-bg: #fef3c7;
+      --yellow: #92400e;
+      --blue-bg: #dbeafe;
+      --blue: #1d4ed8;
+      --red: #b91c1c;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #101522;
+        --surface: #192132;
+        --text: #edf2ff;
+        --muted: #a7b3c9;
+        --border: #303b50;
+        --green-bg: #123822;
+        --green: #86efac;
+        --yellow-bg: #3a2c0e;
+        --yellow: #fcd34d;
+        --blue-bg: #142c4d;
+        --blue: #93c5fd;
+        --red: #fca5a5;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main { width: min(1120px, calc(100% - 32px)); margin: 40px auto; }
+    header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+    h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.4rem); }
+    .subtitle { margin: 8px 0 24px; color: var(--muted); }
+    .connection { display: inline-flex; align-items: center; gap: 9px; color: var(--muted); white-space: nowrap; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); }
+    .connection.connected .dot { background: #22c55e; }
+    .connection.reconnecting .dot { background: #f59e0b; }
+    .counters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .counter, .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+    .counter { padding: 16px 18px; }
+    .counter-label { color: var(--muted); font-size: .9rem; }
+    .counter-value { display: block; margin-top: 5px; font-size: 1.8rem; font-weight: 700; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 650px; }
+    th, td { padding: 14px 18px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { color: var(--muted); font-size: .82rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .badge { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: .82rem; font-weight: 700; }
+    .badge.EN_CAMINO { background: var(--blue-bg); color: var(--blue); }
+    .badge.LLEGANDO { background: var(--yellow-bg); color: var(--yellow); }
+    .badge.ENTREGADO { background: var(--green-bg); color: var(--green); }
+    .empty { color: var(--muted); text-align: center; padding: 32px; }
+    @media (max-width: 620px) {
+      main { width: min(100% - 20px, 1120px); margin: 24px auto; }
+      header { flex-direction: column; gap: 8px; }
+      .counters { gap: 8px; }
+      .counter { padding: 12px; }
+      .counter-label { font-size: .78rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Pedidos en tiempo real</h1>
+        <p class="subtitle">Seguimiento del estado de entrega</p>
+      </div>
+      <div id="connection" class="connection reconnecting" role="status" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="connection-label">Reconectando</span>
+      </div>
+    </header>
+
+    <section class="counters" aria-label="Resumen de pedidos">
+      <article class="counter"><span class="counter-label">En camino</span><strong id="count-EN_CAMINO" class="counter-value">0</strong></article>
+      <article class="counter"><span class="counter-label">Llegando</span><strong id="count-LLEGANDO" class="counter-value">0</strong></article>
+      <article class="counter"><span class="counter-label">Entregados</span><strong id="count-ENTREGADO" class="counter-value">0</strong></article>
+    </section>
+
+    <section class="table-wrap" aria-label="Pedidos">
+      <table>
+        <thead>
+          <tr><th>Pedido</th><th>Repartidor</th><th>Estado</th><th>Última actualización</th></tr>
+        </thead>
+        <tbody id="orders">
+          <tr id="empty"><td class="empty" colspan="4">Esperando pedidos…</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <script>
+    const orders = new Map();
+    const tableBody = document.getElementById("orders");
+    const connection = document.getElementById("connection");
+    const connectionLabel = document.getElementById("connection-label");
+    const formatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" });
+
+    function render() {
+      tableBody.replaceChildren();
+      const counts = { EN_CAMINO: 0, LLEGANDO: 0, ENTREGADO: 0 };
+      [...orders.values()].sort((a, b) => a.order_id.localeCompare(b.order_id)).forEach(order => {
+        counts[order.status] += 1;
+        const row = document.createElement("tr");
+        const orderCell = document.createElement("td");
+        const driverCell = document.createElement("td");
+        const statusCell = document.createElement("td");
+        const updatedCell = document.createElement("td");
+        const badge = document.createElement("span");
+        orderCell.textContent = order.order_id;
+        driverCell.textContent = order.driver_id;
+        badge.className = `badge ${order.status}`;
+        badge.textContent = order.status.replace("_", " ");
+        statusCell.append(badge);
+        updatedCell.textContent = formatter.format(new Date(order.timestamp));
+        row.append(orderCell, driverCell, statusCell, updatedCell);
+        tableBody.append(row);
+      });
+      if (orders.size === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.className = "empty";
+        cell.colSpan = 4;
+        cell.textContent = "Esperando pedidos…";
+        row.append(cell);
+        tableBody.append(row);
+      }
+      Object.entries(counts).forEach(([status, count]) => {
+        document.getElementById(`count-${status}`).textContent = String(count);
+      });
+    }
+
+    function applyUpdate(update) {
+      if (!update || typeof update.order_id !== "string" ||
+          !["EN_CAMINO", "LLEGANDO", "ENTREGADO"].includes(update.status) ||
+          typeof update.driver_id !== "string" || typeof update.timestamp !== "string") {
+        return;
+      }
+      const previous = orders.get(update.order_id);
+      if (!previous || new Date(update.timestamp) >= new Date(previous.timestamp)) {
+        orders.set(update.order_id, update);
+        render();
+      }
+    }
+
+    function setConnection(state) {
+      connection.className = `connection ${state}`;
+      connectionLabel.textContent = state === "connected" ? "Conectado" : "Reconectando";
+    }
+
+    async function loadSnapshot() {
+      const response = await fetch("/api/orders", { headers: { Accept: "application/json" } });
+      if (!response.ok) throw new Error(`Snapshot request failed: ${response.status}`);
+      (await response.json()).forEach(applyUpdate);
+    }
+
+    function connect() {
+      const socketUrl = new URL("/ws/dashboard", window.location.href);
+      socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(socketUrl);
+      socket.addEventListener("open", () => setConnection("connected"));
+      socket.addEventListener("message", event => {
+        try { applyUpdate(JSON.parse(event.data)); } catch (error) { console.error("Invalid dashboard update", error); }
+      });
+      socket.addEventListener("close", () => {
+        setConnection("reconnecting");
+        window.setTimeout(connect, 1500);
+      });
+      socket.addEventListener("error", () => socket.close());
+    }
+
+    loadSnapshot().catch(error => console.error("Could not load initial order snapshot", error));
+    connect();
+  </script>
+</body>
+</html>
