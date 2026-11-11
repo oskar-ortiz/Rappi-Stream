@@ -1,0 +1,57 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/rappi_stream}
+    username: ${POSTGRES_USER:rappi_user}
+    password: ${POSTGRES_PASSWORD:rappi_pass}
+    hikari:
+      maximum-pool-size: 10
+      idle-timeout: 60000
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    consumer:
+      group-id: rappi-stream-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    listener:
+      ack-mode: manual
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        concurrency: 3
+        max-concurrency: 10
+        prefetch: 1
+        auto-startup: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,beans
+  endpoint:
+    health:
+      show-details: always
+
+info:
+  app.name: rappi-stream
+  app.description: Logística en tiempo real con Kafka + RabbitMQ + PostgreSQL
+  app.version: 1.0.0
