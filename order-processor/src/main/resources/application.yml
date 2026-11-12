@@ -8,8 +8,11 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
       properties:
         spring.json.add.type.headers: false
+        enable.idempotence: true
+        retries: 10
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:localhost}
     port: ${SPRING_RABBITMQ_PORT:5672}
@@ -21,4 +24,23 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:change-me}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+app:
+  rabbitmq:
+    queue: ${NEW_ORDERS_QUEUE:new_orders_queue}
+  kafka:
+    topic: ${KAFKA_TOPIC:order_events}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:never}
+      group:
+        readiness:
+          include: rabbitListener,db,kafka
