@@ -2,7 +2,7 @@ spring:
   application:
     name: order-processor
   main:
-    web-application-type: none
+    web-application-type: servlet
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -44,3 +44,4 @@ management:
       group:
         readiness:
           include: rabbitListener,db,kafka
+          show-details: always

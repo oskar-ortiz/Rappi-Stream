@@ -1,0 +1,16 @@
+Revision de redeliveries y eventos duplicados
+============================================
+
+1. Busqueda en logs del processor
+Comando: docker logs rappi-stream-order-processor-1 | grep -i redeliver
+Resultado: sin coincidencias (el listener no registra redelivered=true en esta version).
+
+2. Eventos en Kafka (order_events)
+Comando: docker exec rappi-stream-kafka-1 kafka-console-consumer --bootstrap-server kafka:29092 --topic order_events --from-beginning --property print.key=true --property key.separator=:: --timeout-ms 10000
+Mensajes leidos: 6
+Duplicado detectado:
+62faeae9-8260-419a-81c8-fbd9a4f9228b aparece 2 veces con el mismo driver_id.
+Otros order_id aparecen una sola vez.
+
+3. Conclusion
+Existe al menos un order_id con evento duplicado por redelivery previa. El servicio ya publica el evento incluso cuando el pedido ya existe, antes del ACK del listener. Se anadio la prueba unitaria publishesEventWhenOrderAlreadyExists en OrderProcessingServiceTest.

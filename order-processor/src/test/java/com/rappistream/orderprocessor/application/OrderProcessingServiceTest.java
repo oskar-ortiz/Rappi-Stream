@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,5 +50,23 @@ class OrderProcessingServiceTest {
         InOrder order = inOrder(orderRepository, eventPublisher);
         order.verify(orderRepository).save(org.mockito.ArgumentMatchers.any());
         order.verify(eventPublisher).publish(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void publishesEventWhenOrderAlreadyExists() {
+        // Arrange
+        OrderProcessingService service = new OrderProcessingService(orderRepository, eventPublisher, driverAssignmentStrategy);
+        OrderCreatedCommand command = new OrderCreatedCommand(
+                "o1", "c1", "+1234567890", "addr", List.of(new OrderItem("sku", 1)), Instant.now());
+        Order existing = Order.create(
+                "o1", "c1", "+1234567890", "addr", List.of(new OrderItem("sku", 1)), Instant.now());
+        existing.assignDriver("driver-existing");
+        when(orderRepository.findById("o1")).thenReturn(Optional.of(existing));
+        // Act
+        service.process(command);
+        // Assert
+        verify(orderRepository, never()).save(org.mockito.ArgumentMatchers.any());
+        verify(eventPublisher).publish(org.mockito.ArgumentMatchers.argThat(event ->
+                event.orderId().equals("o1") && event.driverId().equals("driver-existing")));
     }
 }

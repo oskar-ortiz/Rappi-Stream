@@ -1,0 +1,4 @@
+﻿Command: kafka-console-consumer --bootstrap-server kafka:29092 --topic order_events --from-beginning --property print.key=true --property key.separator=:: --timeout-ms 20000
+11851ead-c486-4f27-8859-c55825df3bed::{"event_type":"DRIVER_ASSIGNED","order_id":"11851ead-c486-4f27-8859-c55825df3bed","driver_id":"driver-d0b12a85-8eba-40ba-9cbb-837c0f686b2e","occurred_at":1794511997.194798819}
+Processed a total of 3 messages
+Consumer timed out waiting for additional records after reading the available events.

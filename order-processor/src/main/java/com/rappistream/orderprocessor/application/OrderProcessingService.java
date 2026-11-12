@@ -7,13 +7,10 @@ import com.rappistream.orderprocessor.messaging.OrderCreatedCommand;
 import com.rappistream.orderprocessor.ports.OrderEventPublisherPort;
 import com.rappistream.orderprocessor.ports.OrderRepositoryPort;
 
-import org.springframework.stereotype.Component;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
-@Component
 public class OrderProcessingService {
 
     private final OrderRepositoryPort orderRepository;

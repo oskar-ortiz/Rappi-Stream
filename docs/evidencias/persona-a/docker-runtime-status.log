@@ -1,0 +1,19 @@
+﻿GET http://localhost:8082/actuator/health
+HTTP/1.1 200 
+Content-Type: application/vnd.spring-boot.actuator.v3+json
+Transfer-Encoding: chunked
+Date: Thu, 12 Nov 2026 19:34:20 GMT
+
+{"status":"UP"}
+
+GET http://order-processor:8080/actuator/health (inside container)
+{"status":"UP","groups":["readiness"]}
+GET http://order-processor:8080/actuator/health/readiness (inside container)
+{"status":"UP","components":{"db":{"status":"UP","details":{"database":"PostgreSQL","validationQuery":"isValid()"}},"kafka":{"status":"UP"},"rabbitListener":{"status":"UP","details":{"containers":1}}}}
+docker compose --profile full ps order-api order-processor
+NAME                             IMAGE                          COMMAND                  SERVICE           CREATED         STATUS                   PORTS
+rappi-stream-order-api-1         rappi-stream-order-api         "sh -c 'java $JAVA_O…"   order-api         4 minutes ago   Up 4 minutes (healthy)   0.0.0.0:8082->8080/tcp, [::]:8082->8080/tcp
+rappi-stream-order-processor-1   rappi-stream-order-processor   "sh -c 'java $JAVA_O…"   order-processor   4 minutes ago   Up 4 minutes (healthy)
+docker inspect app states
+name=/rappi-stream-order-api-1 state=running health=healthy restartCount=0 exitCode=0
+name=/rappi-stream-order-processor-1 state=running health=healthy restartCount=0 exitCode=0
