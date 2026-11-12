@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class SmsWorkerServiceTest {
@@ -25,6 +26,6 @@ class SmsWorkerServiceTest {
 
         service.receive(payload);
 
-        verify(smsGateway).send(payload);
+        verify(smsGateway, times(1)).send(payload);
     }
 }

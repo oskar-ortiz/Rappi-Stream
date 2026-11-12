@@ -3,9 +3,9 @@ package com.rappistream.driversimulator.service;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.Instant;
@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class DriverSimulatorServiceTest {
@@ -25,8 +26,12 @@ class DriverSimulatorServiceTest {
     @Mock
     private ScheduledExecutorService driverTripScheduler;
 
-    @InjectMocks
     private DriverSimulatorService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new DriverSimulatorService(kafkaTemplate, driverTripScheduler, "configured-order-events", 5, 10);
+    }
 
     @Test
     void shouldScheduleAndPublishTripEventsUsingOrderIdAsKey() {
@@ -44,9 +49,20 @@ class DriverSimulatorServiceTest {
 
         ArgumentCaptor<DriverSimulatorService.DriverEvent> events =
                 ArgumentCaptor.forClass(DriverSimulatorService.DriverEvent.class);
-        verify(kafkaTemplate, times(2)).send(eq("order_events"), eq("order-1"), events.capture());
+        verify(kafkaTemplate, times(2)).send(eq("configured-order-events"), eq("order-1"), events.capture());
         assertEquals("DRIVER_ARRIVING", events.getAllValues().get(0).eventType());
         assertEquals("ORDER_DELIVERED", events.getAllValues().get(1).eventType());
         assertEquals("driver-7", events.getAllValues().get(0).driverId());
+    }
+
+    @Test
+    void shouldIgnoreEventsThatAreNotDriverAssigned() {
+        DriverSimulatorService.DriverEvent arriving =
+                new DriverSimulatorService.DriverEvent("DRIVER_ARRIVING", "order-1", "driver-7", Instant.now());
+
+        service.listen(new org.apache.kafka.clients.consumer.ConsumerRecord<>(
+                "configured-order-events", 0, 0L, "order-1", arriving));
+
+        verifyNoInteractions(driverTripScheduler, kafkaTemplate);
     }
 }

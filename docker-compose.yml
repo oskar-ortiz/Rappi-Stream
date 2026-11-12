@@ -298,11 +298,16 @@ services:
       kafka-init:
         condition: service_completed_successfully
     environment:
+      SERVER_PORT: "8080"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-order_events}
+      DRIVER_SIMULATOR_GROUP_ID: ${DRIVER_SIMULATOR_GROUP_ID:-driver-simulator-group}
+      DRIVER_ARRIVING_DELAY_SECONDS: ${DRIVER_ARRIVING_DELAY_SECONDS:-5}
+      ORDER_DELIVERED_DELAY_SECONDS: ${ORDER_DELIVERED_DELAY_SECONDS:-10}
     networks:
       - rappi-stream-network
     healthcheck:
-      test: ["CMD-SHELL", "kill -0 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -329,15 +334,19 @@ services:
       rabbitmq-init:
         condition: service_completed_successfully
     environment:
+      SERVER_PORT: "8080"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-order_events}
+      NOTIFICATION_ROUTER_GROUP_ID: ${NOTIFICATION_ROUTER_GROUP_ID:-notification-router-group}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      NOTIFICATIONS_EXCHANGE: ${NOTIFICATIONS_EXCHANGE:-notifications}
     networks:
       - rappi-stream-network
     healthcheck:
-      test: ["CMD-SHELL", "kill -0 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -362,14 +371,16 @@ services:
       rabbitmq-init:
         condition: service_completed_successfully
     environment:
+      SERVER_PORT: "8080"
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      SMS_QUEUE: ${SMS_QUEUE:-sms_queue}
     networks:
       - rappi-stream-network
     healthcheck:
-      test: ["CMD-SHELL", "kill -0 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 6
@@ -395,14 +406,16 @@ services:
       rabbitmq-init:
         condition: service_completed_successfully
     environment:
+      SERVER_PORT: "8080"
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      PUSH_QUEUE: ${PUSH_QUEUE:-push_queue}
     networks:
       - rappi-stream-network
     healthcheck:
-      test: ["CMD-SHELL", "kill -0 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 6
