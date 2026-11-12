@@ -1,0 +1,1 @@
+package com.rappistream.dashboardaggregator.infrastructure.history;  import org.springframework.data.jpa.repository.JpaRepository;  public interface OrderHistoryJpaRepository extends JpaRepository<OrderHistoryJpaEntity, Long> { }
