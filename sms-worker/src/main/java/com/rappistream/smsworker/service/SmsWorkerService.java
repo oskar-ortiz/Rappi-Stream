@@ -11,7 +11,7 @@ public class SmsWorkerService {
         this.smsGateway = smsGateway;
     }
 
-    @RabbitListener(queues = "sms_queue")
+    @RabbitListener(queues = "${app.rabbitmq.queue}")
     public void receive(NotificationPayload payload) {
         smsGateway.send(payload);
     }

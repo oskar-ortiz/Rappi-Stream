@@ -1,11 +1,10 @@
 spring:
   application:
     name: driver-simulator
-  main:
-    web-application-type: none
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
+      group-id: ${DRIVER_SIMULATOR_GROUP_ID:driver-simulator-group}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
@@ -17,3 +16,19 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
         spring.json.add.type.headers: false
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+app:
+  kafka:
+    topic: ${KAFKA_TOPIC:order_events}
+  driver:
+    arriving-delay-seconds: ${DRIVER_ARRIVING_DELAY_SECONDS:5}
+    delivered-delay-seconds: ${ORDER_DELIVERED_DELAY_SECONDS:10}
