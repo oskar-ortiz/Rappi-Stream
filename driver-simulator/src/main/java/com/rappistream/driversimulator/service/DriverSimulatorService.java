@@ -2,6 +2,7 @@ package com.rappistream.driversimulator.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -12,17 +13,25 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class DriverSimulatorService {
-    public static final String ORDER_EVENTS_TOPIC = "order_events";
     private final KafkaTemplate<String, DriverEvent> kafkaTemplate;
     private final ScheduledExecutorService executor;
+    private final String orderEventsTopic;
+    private final long arrivingDelaySeconds;
+    private final long deliveredDelaySeconds;
 
     public DriverSimulatorService(KafkaTemplate<String, DriverEvent> kafkaTemplate,
-                                 ScheduledExecutorService driverTripScheduler) {
+                                  ScheduledExecutorService driverTripScheduler,
+                                  @Value("${app.kafka.topic}") String orderEventsTopic,
+                                  @Value("${app.driver.arriving-delay-seconds}") long arrivingDelaySeconds,
+                                  @Value("${app.driver.delivered-delay-seconds}") long deliveredDelaySeconds) {
         this.kafkaTemplate = kafkaTemplate;
         this.executor = driverTripScheduler;
+        this.orderEventsTopic = orderEventsTopic;
+        this.arrivingDelaySeconds = arrivingDelaySeconds;
+        this.deliveredDelaySeconds = deliveredDelaySeconds;
     }
 
-    @KafkaListener(topics = "order_events", groupId = "driver-simulator-group")
+    @KafkaListener(topics = "${app.kafka.topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void listen(ConsumerRecord<String, DriverEvent> record) {
         DriverEvent event = record.value();
         if (!"DRIVER_ASSIGNED".equals(event.eventType())) {
@@ -33,13 +42,13 @@ public class DriverSimulatorService {
     }
 
     void scheduleTrip(DriverEvent assignment) {
-        executor.schedule(() -> publishOrderEvent("DRIVER_ARRIVING", assignment), 5, TimeUnit.SECONDS);
-        executor.schedule(() -> publishOrderEvent("ORDER_DELIVERED", assignment), 10, TimeUnit.SECONDS);
+        executor.schedule(() -> publishOrderEvent("DRIVER_ARRIVING", assignment), arrivingDelaySeconds, TimeUnit.SECONDS);
+        executor.schedule(() -> publishOrderEvent("ORDER_DELIVERED", assignment), deliveredDelaySeconds, TimeUnit.SECONDS);
     }
 
     void publishOrderEvent(String eventType, DriverEvent assignment) {
         DriverEvent event = new DriverEvent(eventType, assignment.orderId(), assignment.driverId(), Instant.now());
-        kafkaTemplate.send(ORDER_EVENTS_TOPIC, assignment.orderId(), event);
+        kafkaTemplate.send(orderEventsTopic, assignment.orderId(), event);
     }
 
     public record DriverEvent(

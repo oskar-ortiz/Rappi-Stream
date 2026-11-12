@@ -11,7 +11,7 @@ public class PushNotificationWorkerService {
         this.pushNotificationGateway = pushNotificationGateway;
     }
 
-    @RabbitListener(queues = "push_queue")
+    @RabbitListener(queues = "${app.rabbitmq.queue}")
     public void receive(NotificationPayload payload) {
         pushNotificationGateway.send(payload);
     }
