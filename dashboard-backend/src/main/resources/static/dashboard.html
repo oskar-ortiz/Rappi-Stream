@@ -3,150 +3,755 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rappi-Stream | Dashboard de pedidos</title>
+  <title>Rappi-Stream | Dashboard de pedidos en tiempo real</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      color-scheme: light dark;
-      --background: #f4f6fb;
-      --surface: #fff;
-      --text: #172033;
+      --bg: #0a0e1a;
+      --bg-gradient: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(255,68,31,0.15) 0%, transparent 60%),
+                      radial-gradient(ellipse 80% 60% at 80% 100%, rgba(109,74,255,0.12) 0%, transparent 50%),
+                      #0a0e1a;
+      --surface: rgba(255,255,255,0.04);
+      --surface-hover: rgba(255,255,255,0.07);
+      --surface-solid: #141926;
+      --border: rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.14);
+      --text: #f1f5f9;
+      --text-secondary: #cbd5e1;
       --muted: #64748b;
-      --border: #dce2ed;
-      --accent: #6d4aff;
-      --green-bg: #dcfce7;
-      --green: #166534;
-      --yellow-bg: #fef3c7;
-      --yellow: #92400e;
-      --blue-bg: #dbeafe;
-      --blue: #1d4ed8;
-      --red: #b91c1c;
+      --accent: #ff441f;
+      --accent-glow: rgba(255,68,31,0.4);
+      --accent-soft: rgba(255,68,31,0.12);
+      --green: #22c55e;
+      --green-bg: rgba(34,197,94,0.12);
+      --green-border: rgba(34,197,94,0.3);
+      --yellow: #f59e0b;
+      --yellow-bg: rgba(245,158,11,0.12);
+      --yellow-border: rgba(245,158,11,0.3);
+      --blue: #3b82f6;
+      --blue-bg: rgba(59,130,246,0.12);
+      --blue-border: rgba(59,130,246,0.3);
+      --red: #ef4444;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+      --shadow-glow: 0 0 40px rgba(255,68,31,0.15);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
     }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --background: #101522;
-        --surface: #192132;
-        --text: #edf2ff;
-        --muted: #a7b3c9;
-        --border: #303b50;
-        --green-bg: #123822;
-        --green: #86efac;
-        --yellow-bg: #3a2c0e;
-        --yellow: #fcd34d;
-        --blue-bg: #142c4d;
-        --blue: #93c5fd;
-        --red: #fca5a5;
-      }
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    * { box-sizing: border-box; }
     body {
-      margin: 0;
-      background: var(--background);
+      background: var(--bg-gradient);
       color: var(--text);
-      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
-    main { width: min(1120px, calc(100% - 32px)); margin: 40px auto; }
-    header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
-    h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.4rem); }
-    .subtitle { margin: 8px 0 24px; color: var(--muted); }
-    .connection { display: inline-flex; align-items: center; gap: 9px; color: var(--muted); white-space: nowrap; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); }
-    .connection.connected .dot { background: #22c55e; }
-    .connection.reconnecting .dot { background: #f59e0b; }
-    .counters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
-    .counter, .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
-    .counter { padding: 16px 18px; }
-    .counter-label { color: var(--muted); font-size: .9rem; }
-    .counter-value { display: block; margin-top: 5px; font-size: 1.8rem; font-weight: 700; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 650px; }
-    th, td { padding: 14px 18px; border-bottom: 1px solid var(--border); text-align: left; }
-    th { color: var(--muted); font-size: .82rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+
+    /* Subtle animated background particles */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: 
+        radial-gradient(circle at 20% 30%, rgba(255,68,31,0.06) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(109,74,255,0.05) 0%, transparent 40%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: min(1280px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 32px 0 60px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--accent) 0%, #ff6b4a 100%);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.2rem;
+      color: white;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .logo::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.2) 50%, transparent 60%);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { transform: translateX(-100%); }
+      50% { transform: translateX(100%); }
+    }
+
+    .brand-text h1 {
+      font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .brand-text .subtitle {
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .clock {
+      font-family: 'Inter', monospace;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--surface);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .connection {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .connection.connected {
+      border-color: var(--green-border);
+      background: var(--green-bg);
+      color: var(--green);
+    }
+
+    .connection.reconnecting {
+      border-color: var(--yellow-border);
+      background: var(--yellow-bg);
+      color: var(--yellow);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      position: relative;
+    }
+
+    .connection.connected .dot {
+      background: var(--green);
+      animation: pulse-green 2s ease-in-out infinite;
+    }
+
+    .connection.reconnecting .dot {
+      background: var(--yellow);
+      animation: pulse-yellow 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-green {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+    }
+
+    @keyframes pulse-yellow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Stats cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 22px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-md);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover::before { opacity: 1; }
+
+    .stat-card .label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-card .label .icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+    }
+
+    .stat-card .value {
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-top: 8px;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .stat-card .value.bump { transform: scale(1.15); }
+
+    .stat-card.total .value { color: var(--text); }
+    .stat-card.en-camino .value { color: var(--blue); }
+    .stat-card.llegando .value { color: var(--yellow); }
+    .stat-card.entregado .value { color: var(--green); }
+
+    .stat-card.total .icon { background: var(--surface-hover); color: var(--text-secondary); }
+    .stat-card.en-camino .icon { background: var(--blue-bg); color: var(--blue); }
+    .stat-card.llegando .icon { background: var(--yellow-bg); color: var(--yellow); }
+    .stat-card.entregado .icon { background: var(--green-bg); color: var(--green); }
+
+    /* Table */
+    .table-card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .table-header h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .search-box {
+      position: relative;
+      flex: 1;
+      max-width: 320px;
+      min-width: 200px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 9px 14px 9px 36px;
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .search-box input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .search-box svg {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .table-scroll { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+
+    thead th {
+      padding: 14px 20px;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(0,0,0,0.2);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+      vertical-align: middle;
+    }
+
+    tbody tr {
+      transition: background 0.15s ease;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    tbody tr:hover { background: var(--surface-hover); }
     tbody tr:last-child td { border-bottom: 0; }
-    .badge { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: .82rem; font-weight: 700; }
-    .badge.EN_CAMINO { background: var(--blue-bg); color: var(--blue); }
-    .badge.LLEGANDO { background: var(--yellow-bg); color: var(--yellow); }
-    .badge.ENTREGADO { background: var(--green-bg); color: var(--green); }
-    .empty { color: var(--muted); text-align: center; padding: 32px; }
-    @media (max-width: 620px) {
-      main { width: min(100% - 20px, 1120px); margin: 24px auto; }
-      header { flex-direction: column; gap: 8px; }
-      .counters { gap: 8px; }
-      .counter { padding: 12px; }
-      .counter-label { font-size: .78rem; }
+
+    .order-id {
+      font-family: 'Inter', monospace;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .driver-id {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      transition: all 0.3s ease;
+    }
+
+    .badge .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      animation: pulse-badge 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .badge.EN_CAMINO {
+      background: var(--blue-bg);
+      color: var(--blue);
+      border: 1px solid var(--blue-border);
+    }
+    .badge.EN_CAMINO .badge-dot { background: var(--blue); }
+
+    .badge.LLEGANDO {
+      background: var(--yellow-bg);
+      color: var(--yellow);
+      border: 1px solid var(--yellow-border);
+    }
+    .badge.LLEGANDO .badge-dot { background: var(--yellow); }
+
+    .badge.ENTREGADO {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid var(--green-border);
+    }
+    .badge.ENTREGADO .badge-dot { background: var(--green); animation: none; }
+
+    .timestamp {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state .empty-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      background: var(--surface-hover);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+    }
+
+    .empty-state p {
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .empty-state .hint {
+      font-size: 0.8rem;
+      margin-top: 6px;
+      opacity: 0.7;
+    }
+
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--surface-solid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 280px;
+      max-width: 400px;
+      pointer-events: auto;
+      animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: blur(12px);
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(120%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .toast.removing {
+      animation: slideOut 0.3s ease forwards;
+    }
+
+    @keyframes slideOut {
+      to { transform: translateX(120%); opacity: 0; }
+    }
+
+    .toast .toast-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .toast.success .toast-icon { background: var(--green-bg); color: var(--green); }
+    .toast.info .toast-icon { background: var(--blue-bg); color: var(--blue); }
+
+    .toast .toast-content {
+      flex: 1;
+    }
+
+    .toast .toast-title {
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .toast .toast-desc {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 32px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 16px;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container { width: calc(100% - 24px); padding: 20px 0 40px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat-card { padding: 16px; }
+      .stat-card .value { font-size: 1.8rem; }
+      .table-header { flex-direction: column; align-items: stretch; }
+      .search-box { max-width: 100%; }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .header { flex-direction: column; align-items: flex-start; }
+      .header-right { width: 100%; justify-content: space-between; }
     }
   </style>
 </head>
 <body>
-  <main>
-    <header>
-      <div>
-        <h1>Pedidos en tiempo real</h1>
-        <p class="subtitle">Seguimiento del estado de entrega</p>
+  <div class="toast-container" id="toast-container"></div>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">RS</div>
+        <div class="brand-text">
+          <h1>Rappi-Stream</h1>
+          <p class="subtitle">Dashboard de pedidos en tiempo real</p>
+        </div>
       </div>
-      <div id="connection" class="connection reconnecting" role="status" aria-live="polite">
-        <span class="dot" aria-hidden="true"></span>
-        <span id="connection-label">Reconectando</span>
+      <div class="header-right">
+        <div class="clock" id="clock">--:--:--</div>
+        <div id="connection" class="connection reconnecting" role="status" aria-live="polite">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="connection-label">Reconectando</span>
+        </div>
       </div>
     </header>
 
-    <section class="counters" aria-label="Resumen de pedidos">
-      <article class="counter"><span class="counter-label">En camino</span><strong id="count-EN_CAMINO" class="counter-value">0</strong></article>
-      <article class="counter"><span class="counter-label">Llegando</span><strong id="count-LLEGANDO" class="counter-value">0</strong></article>
-      <article class="counter"><span class="counter-label">Entregados</span><strong id="count-ENTREGADO" class="counter-value">0</strong></article>
+    <section class="stats-grid" aria-label="Resumen de pedidos">
+      <article class="stat-card total">
+        <span class="label"><span class="icon">Σ</span>Total</span>
+        <strong id="count-total" class="value">0</strong>
+      </article>
+      <article class="stat-card en-camino">
+        <span class="label"><span class="icon">①</span>En camino</span>
+        <strong id="count-EN_CAMINO" class="value">0</strong>
+      </article>
+      <article class="stat-card llegando">
+        <span class="label"><span class="icon">②</span>Llegando</span>
+        <strong id="count-LLEGANDO" class="value">0</strong>
+      </article>
+      <article class="stat-card entregado">
+        <span class="label"><span class="icon">③</span>Entregados</span>
+        <strong id="count-ENTREGADO" class="value">0</strong>
+      </article>
     </section>
 
-    <section class="table-wrap" aria-label="Pedidos">
-      <table>
-        <thead>
-          <tr><th>Pedido</th><th>Repartidor</th><th>Estado</th><th>Última actualización</th></tr>
-        </thead>
-        <tbody id="orders">
-          <tr id="empty"><td class="empty" colspan="4">Esperando pedidos…</td></tr>
-        </tbody>
-      </table>
-    </section>
-  </main>
+    <div class="table-card">
+      <div class="table-header">
+        <h2>Pedidos recientes</h2>
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="search" id="search" placeholder="Buscar por ID o repartidor…" autocomplete="off">
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Pedido</th>
+              <th>Repartidor</th>
+              <th>Estado</th>
+              <th>Última actualización</th>
+            </tr>
+          </thead>
+          <tbody id="orders"></tbody>
+        </table>
+      </div>
+      <div id="empty-state" class="empty-state" style="display:none;">
+        <div class="empty-icon">📦</div>
+        <p>Esperando pedidos…</p>
+        <p class="hint">Los pedidos aparecerán aquí en tiempo real cuando se envíen a la API</p>
+      </div>
+    </div>
+
+    <footer class="footer">
+      Rappi-Stream · Dashboard en tiempo real · Powered by WebSocket &amp; Kafka
+    </footer>
+  </div>
+
   <script>
     const orders = new Map();
     const tableBody = document.getElementById("orders");
     const connection = document.getElementById("connection");
     const connectionLabel = document.getElementById("connection-label");
+    const searchInput = document.getElementById("search");
+    const emptyState = document.getElementById("empty-state");
     const formatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" });
+    const toastContainer = document.getElementById("toast-container");
+    let searchQuery = "";
+
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent = now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function showToast(title, desc, type = "info") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      const icon = type === "success" ? "✓" : "ℹ";
+      toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-content">
+          <div class="toast-title">${title}</div>
+          <div class="toast-desc">${desc}</div>
+        </div>`;
+      toastContainer.append(toast);
+      setTimeout(() => {
+        toast.classList.add("removing");
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
 
     function render() {
+      const filtered = [...orders.values()]
+        .filter(o => !searchQuery || o.order_id.toLowerCase().includes(searchQuery) || o.driver_id.toLowerCase().includes(searchQuery))
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
       tableBody.replaceChildren();
       const counts = { EN_CAMINO: 0, LLEGANDO: 0, ENTREGADO: 0 };
-      [...orders.values()].sort((a, b) => a.order_id.localeCompare(b.order_id)).forEach(order => {
-        counts[order.status] += 1;
-        const row = document.createElement("tr");
-        const orderCell = document.createElement("td");
-        const driverCell = document.createElement("td");
-        const statusCell = document.createElement("td");
-        const updatedCell = document.createElement("td");
-        const badge = document.createElement("span");
-        orderCell.textContent = order.order_id;
-        driverCell.textContent = order.driver_id;
-        badge.className = `badge ${order.status}`;
-        badge.textContent = order.status.replace("_", " ");
-        statusCell.append(badge);
-        updatedCell.textContent = formatter.format(new Date(order.timestamp));
-        row.append(orderCell, driverCell, statusCell, updatedCell);
-        tableBody.append(row);
-      });
-      if (orders.size === 0) {
+
+      [...orders.values()].forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
+
+      if (filtered.length === 0 && orders.size > 0) {
         const row = document.createElement("tr");
         const cell = document.createElement("td");
         cell.className = "empty";
         cell.colSpan = 4;
-        cell.textContent = "Esperando pedidos…";
+        cell.textContent = "Sin resultados para la búsqueda";
         row.append(cell);
         tableBody.append(row);
+      } else if (orders.size === 0) {
+        // handled by empty state
+      } else {
+        filtered.forEach(order => {
+          const row = document.createElement("tr");
+          const orderCell = document.createElement("td");
+          const driverCell = document.createElement("td");
+          const statusCell = document.createElement("td");
+          const updatedCell = document.createElement("td");
+          const badge = document.createElement("span");
+          orderCell.className = "order-id";
+          orderCell.textContent = order.order_id;
+          driverCell.className = "driver-id";
+          driverCell.textContent = order.driver_id;
+          badge.className = `badge ${order.status}`;
+          badge.innerHTML = `<span class="badge-dot"></span>${order.status.replace("_", " ")}`;
+          statusCell.append(badge);
+          updatedCell.className = "timestamp";
+          updatedCell.textContent = formatter.format(new Date(order.timestamp));
+          row.append(orderCell, driverCell, statusCell, updatedCell);
+          tableBody.append(row);
+        });
       }
+
+      emptyState.style.display = orders.size === 0 ? "block" : "none";
+
       Object.entries(counts).forEach(([status, count]) => {
-        document.getElementById(`count-${status}`).textContent = String(count);
+        const el = document.getElementById(`count-${status}`);
+        if (el) {
+          const prev = parseInt(el.textContent) || 0;
+          if (count !== prev) {
+            el.classList.remove("bump");
+            void el.offsetWidth;
+            el.classList.add("bump");
+            setTimeout(() => el.classList.remove("bump"), 300);
+          }
+          el.textContent = String(count);
+        }
       });
+      document.getElementById("count-total").textContent = String(orders.size);
     }
 
     function applyUpdate(update) {
@@ -157,8 +762,14 @@
       }
       const previous = orders.get(update.order_id);
       if (!previous || new Date(update.timestamp) >= new Date(previous.timestamp)) {
+        const isNew = !previous;
         orders.set(update.order_id, update);
         render();
+        if (isNew) {
+          showToast("Nuevo pedido", `Pedido ${update.order_id.slice(0, 8)}… asignado`, "info");
+        } else if (update.status === "ENTREGADO") {
+          showToast("Entrega completada", `Pedido ${update.order_id.slice(0, 8)}… entregado`, "success");
+        }
       }
     }
 
@@ -187,6 +798,11 @@
       });
       socket.addEventListener("error", () => socket.close());
     }
+
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      render();
+    });
 
     loadSnapshot().catch(error => console.error("Could not load initial order snapshot", error));
     connect();
