@@ -5,7 +5,9 @@ import com.rappistream.orderapi.application.CreateOrderService;
 import com.rappistream.orderapi.domain.CreateOrderRequest;
 import com.rappistream.orderapi.domain.ErrorDetail;
 import com.rappistream.orderapi.domain.ErrorResponse;
+import com.rappistream.orderapi.domain.InvalidOrderRequestException;
 import com.rappistream.orderapi.domain.OrderAcceptedResponse;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -51,19 +53,51 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException ex) {
-        Throwable cause = ex.getCause();
-        String message = cause != null ? cause.getMessage() : ex.getMessage();
-        boolean malformedJson = message == null
-                || message.toLowerCase().contains("json")
-                || message.toLowerCase().contains("parse");
-        if (malformedJson && (cause == null || cause instanceof com.fasterxml.jackson.core.JsonProcessingException)) {
+        InvalidOrderRequestException invalidField = findInvalidOrderField(ex);
+        if (invalidField != null) {
             return ResponseEntity.badRequest().body(new ErrorResponse(
-                    "INVALID_JSON", "Request body contains malformed JSON",
-                    List.of(new ErrorDetail("$", "malformed JSON")), Instant.now()));
+                    "VALIDATION_ERROR", "Request validation failed",
+                    List.of(new ErrorDetail(invalidField.field(), invalidField.reason())), Instant.now()));
+        }
+        String mismatchField = findMismatchField(ex);
+        if (mismatchField != null) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(
+                    "VALIDATION_ERROR", "Request validation failed",
+                    List.of(new ErrorDetail(mismatchField, "value has an invalid type or format")),
+                    Instant.now()));
         }
         return ResponseEntity.badRequest().body(new ErrorResponse(
-                "VALIDATION_ERROR", "Request validation failed",
-                List.of(new ErrorDetail("$", message == null ? "invalid request" : message)), Instant.now()));
+                "INVALID_JSON", "Request body is missing or is not valid JSON",
+                List.of(new ErrorDetail("$", "malformed or empty JSON input")), Instant.now()));
+    }
+
+    private InvalidOrderRequestException findInvalidOrderField(Throwable ex) {
+        Throwable current = ex;
+        for (int depth = 0; depth < 5 && current != null; depth++) {
+            if (current instanceof InvalidOrderRequestException invalid) {
+                return invalid;
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private String findMismatchField(HttpMessageNotReadableException ex) {
+        if (ex.getCause() instanceof JsonMappingException mapping && !mapping.getPath().isEmpty()) {
+            StringBuilder path = new StringBuilder();
+            for (JsonMappingException.Reference reference : mapping.getPath()) {
+                if (reference.getFieldName() != null) {
+                    if (path.length() > 0) {
+                        path.append('.');
+                    }
+                    path.append(reference.getFieldName());
+                } else if (reference.getIndex() >= 0) {
+                    path.append('[').append(reference.getIndex()).append(']');
+                }
+            }
+            return path.isEmpty() ? null : path.toString();
+        }
+        return null;
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)

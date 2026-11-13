@@ -8,13 +8,13 @@ public record OrderItem(
 
     public OrderItem {
         if (sku == null || sku.isBlank()) {
-            throw new IllegalArgumentException("sku must not be blank");
+            throw new InvalidOrderRequestException("sku", "must not be blank");
         }
         if (sku.length() > 64) {
-            throw new IllegalArgumentException("sku must be at most 64 characters");
+            throw new InvalidOrderRequestException("sku", "must be at most 64 characters");
         }
         if (quantity < 1 || quantity > 99) {
-            throw new IllegalArgumentException("quantity must be between 1 and 99");
+            throw new InvalidOrderRequestException("quantity", "must be between 1 and 99");
         }
     }
 }
