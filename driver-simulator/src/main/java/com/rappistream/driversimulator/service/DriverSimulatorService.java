@@ -2,6 +2,8 @@ package com.rappistream.driversimulator.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -13,6 +15,8 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class DriverSimulatorService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DriverSimulatorService.class);
+
     private final KafkaTemplate<String, DriverEvent> kafkaTemplate;
     private final ScheduledExecutorService executor;
     private final String orderEventsTopic;
@@ -48,7 +52,11 @@ public class DriverSimulatorService {
 
     void publishOrderEvent(String eventType, DriverEvent assignment) {
         DriverEvent event = new DriverEvent(eventType, assignment.orderId(), assignment.driverId(), Instant.now());
-        kafkaTemplate.send(orderEventsTopic, assignment.orderId(), event);
+        try {
+            kafkaTemplate.send(orderEventsTopic, assignment.orderId(), event).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            LOGGER.error("Failed to publish {} for order {}", eventType, assignment.orderId(), e);
+        }
     }
 
     public record DriverEvent(

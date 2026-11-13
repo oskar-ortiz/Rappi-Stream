@@ -32,28 +32,28 @@ public record CreateOrderRequest(
 
     public CreateOrderRequest {
         if (customerId == null || customerId.isBlank()) {
-            throw new IllegalArgumentException("customerId must not be blank");
+            throw new InvalidOrderRequestException("customerId", "must not be blank");
         }
         if (customerId.length() > 64) {
-            throw new IllegalArgumentException("customerId must be at most 64 characters");
+            throw new InvalidOrderRequestException("customerId", "must be at most 64 characters");
         }
         if (customerPhone == null || customerPhone.isBlank()) {
-            throw new IllegalArgumentException("customerPhone must not be blank");
+            throw new InvalidOrderRequestException("customerPhone", "must not be blank");
         }
         if (!customerPhone.matches("^\\+[1-9]\\d{7,14}$")) {
-            throw new IllegalArgumentException("customerPhone must match ^\\+[1-9]\\d{7,14}$");
+            throw new InvalidOrderRequestException("customerPhone", "must match ^\\+[1-9]\\d{7,14}$");
         }
         if (address == null || address.isBlank()) {
-            throw new IllegalArgumentException("address must not be blank");
+            throw new InvalidOrderRequestException("address", "must not be blank");
         }
         if (address.length() > 200) {
-            throw new IllegalArgumentException("address must be at most 200 characters");
+            throw new InvalidOrderRequestException("address", "must be at most 200 characters");
         }
         if (items == null || items.isEmpty() || items.size() > 50) {
-            throw new IllegalArgumentException("items must contain between 1 and 50 elements");
+            throw new InvalidOrderRequestException("items", "must contain between 1 and 50 elements");
         }
         if (items.stream().anyMatch(java.util.Objects::isNull)) {
-            throw new IllegalArgumentException("items must not contain null elements");
+            throw new InvalidOrderRequestException("items", "must not contain null elements");
         }
     }
 }

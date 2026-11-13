@@ -9,14 +9,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DriverSimulatorServiceTest {
@@ -31,6 +36,8 @@ class DriverSimulatorServiceTest {
     @BeforeEach
     void setUp() {
         service = new DriverSimulatorService(kafkaTemplate, driverTripScheduler, "configured-order-events", 5, 10);
+        lenient().when(kafkaTemplate.send(anyString(), anyString(), any(DriverSimulatorService.DriverEvent.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
     }
 
     @Test

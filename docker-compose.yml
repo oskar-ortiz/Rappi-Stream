@@ -9,6 +9,7 @@ services:
       ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME:-2000}
       ZOOKEEPER_4LW_COMMANDS_WHITELIST: ruok
       ZOOKEEPER_HEAP_OPTS: ${ZOOKEEPER_HEAP_OPTS:--Xms256M -Xmx256M}
+      KAFKA_HEAP_OPTS: ${ZOOKEEPER_HEAP_OPTS:--Xms256M -Xmx256M}
     volumes:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-log:/var/lib/zookeeper/log
@@ -17,9 +18,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "cub zk-ready localhost:${ZOOKEEPER_CLIENT_PORT:-2181} 10"]
       interval: 10s
-      timeout: 15s
+      timeout: 20s
       retries: 10
-      start_period: 20s
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -43,15 +44,15 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: ${KAFKA_REPLICATION_FACTOR:-1}
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xms512M -Xmx512M}
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xms384M -Xmx384M}
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
       - rappi-stream-network
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:${KAFKA_INTERNAL_PORT:-29092} --list >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "cub kafka-ready 1 10 -b localhost:${KAFKA_INTERNAL_PORT:-29092}"]
       interval: 10s
-      timeout: 10s
+      timeout: 15s
       retries: 12
       start_period: 30s
     deploy:
@@ -89,11 +90,11 @@ services:
     networks:
       - rappi-stream-network
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_port_listener 5672"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
-      start_period: 20s
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -231,11 +232,11 @@ services:
       - rappi-stream-network
       - rappi-stream-edge
     healthcheck:
-      test: ["CMD-SHELL", "kill -0 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 30s
+      retries: 12
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -273,11 +274,11 @@ services:
     networks:
       - rappi-stream-network
     healthcheck:
-      test: ["CMD-SHELL", "kill -0 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness"]
       interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 30s
+      retries: 12
+      start_period: 60s
     deploy:
       resources:
         limits:
