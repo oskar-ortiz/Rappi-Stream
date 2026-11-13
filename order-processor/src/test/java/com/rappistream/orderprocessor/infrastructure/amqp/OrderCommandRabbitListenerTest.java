@@ -51,6 +51,24 @@ class OrderCommandRabbitListenerTest {
     }
 
     @Test
+    void successfulProcessingIsAcknowledgedSoDuplicateRedeliveriesAreNotRequeued() throws Exception {
+        // Arrange
+        OrderCommandRabbitListener listener = new OrderCommandRabbitListener(objectMapper, processingService);
+        Message message = new Message("{}".getBytes(), new MessageProperties());
+        message.getMessageProperties().setDeliveryTag(3L);
+        OrderCreatedCommand cmd = new OrderCreatedCommand(
+                "o1", "c1", "+1234567890", "addr", List.of(new OrderItem("sku", 1)), java.time.Instant.now());
+        when(objectMapper.readValue(any(byte[].class), eq(OrderCreatedCommand.class)))
+                .thenReturn(cmd);
+        // Act
+        listener.onMessage(message, channel);
+        // Assert
+        verify(processingService).process(cmd);
+        verify(channel).basicAck(3L, false);
+        verify(channel, never()).basicNack(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
     void serviceFailureDoesNotAck() throws Exception {
         // Arrange
         OrderCommandRabbitListener listener = new OrderCommandRabbitListener(objectMapper, processingService);
