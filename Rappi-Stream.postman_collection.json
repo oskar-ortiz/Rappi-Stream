@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Rappi-Stream",
-    "description": "ColecciÃ³n reproducible para validar el flujo POST /order, health checks y dashboard del despliegue AWS (y local).",
+    "description": "Coleccion reproducible para validar el flujo POST /order, health checks y dashboard del despliegue AWS (y local). Seleccionar el environment 'Rappi-Stream AWS' para que las variables base_url y dashboard_url se resuelvan.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -18,7 +18,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{base_url}}/actuator/health", "host": ["{{base_url}}"], "path": ["actuator", "health"] }
+            "url": "{{base_url}}/actuator/health"
           },
           "event": [
             {
@@ -42,7 +42,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": { "raw": "{{dashboard_url}}/actuator/health", "host": ["{{dashboard_url}}"], "path": ["actuator", "health"] }
+            "url": "{{dashboard_url}}/actuator/health"
           },
           "event": [
             {
@@ -73,9 +73,10 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer_id\": \"postman-check\",\n  \"customer_phone\": \"+14155552671\",\n  \"address\": \"Av. Siempre Viva 742\",\n  \"items\": [{ \"sku\": \"sku-001\", \"quantity\": 2 }]\n}"
+              "raw": "{\n  \"customer_id\": \"postman-check\",\n  \"customer_phone\": \"+14155552671\",\n  \"address\": \"Av. Siempre Viva 742\",\n  \"items\": [{ \"sku\": \"sku-001\", \"quantity\": 2 }]\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": { "raw": "{{base_url}}/order", "host": ["{{base_url}}"], "path": ["order"] }
+            "url": "{{base_url}}/order"
           },
           "event": [
             {
@@ -107,9 +108,10 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer_id\": \"customer-456\",\n  \"customer_phone\": \"4155552671\",\n  \"address\": \"123 Market\",\n  \"items\": [{ \"sku\": \"sku-001\", \"quantity\": 2 }]\n}"
+              "raw": "{\n  \"customer_id\": \"customer-456\",\n  \"customer_phone\": \"4155552671\",\n  \"address\": \"123 Market\",\n  \"items\": [{ \"sku\": \"sku-001\", \"quantity\": 2 }]\n}",
+              "options": { "raw": { "language": "json" } }
             },
-            "url": { "raw": "{{base_url}}/order", "host": ["{{base_url}}"], "path": ["order"] }
+            "url": "{{base_url}}/order"
           },
           "event": [
             {
@@ -137,8 +139,8 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{bad json" },
-            "url": { "raw": "{{base_url}}/order", "host": ["{{base_url}}"], "path": ["order"] }
+            "body": { "mode": "raw", "raw": "{bad json", "options": { "raw": { "language": "json" } } },
+            "url": "{{base_url}}/order"
           },
           "event": [
             {
@@ -165,7 +167,7 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "text/plain" }],
             "body": { "mode": "raw", "raw": "x" },
-            "url": { "raw": "{{base_url}}/order", "host": ["{{base_url}}"], "path": ["order"] }
+            "url": "{{base_url}}/order"
           },
           "event": [
             {
@@ -190,7 +192,7 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": { "raw": "{{dashboard_url}}/api/orders", "host": ["{{dashboard_url}}"], "path": ["api", "orders"] }
+            "url": "{{dashboard_url}}/api/orders"
           },
           "event": [
             {
