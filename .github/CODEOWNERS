@@ -1,0 +1,16 @@
+* @oskar-ortiz
+
+# Propiedad provisional de los archivos compartidos y de infraestructura.
+/pom.xml @oskar-ortiz
+/docker-compose.yml @oskar-ortiz
+/.env.example @oskar-ortiz
+/docs/contratos.md @oskar-ortiz
+/.github/ @oskar-ortiz
+
+# Completar cuando se conozcan los usuarios GitHub reales:
+# /order-api/ @usuario-persona-a
+# /order-processor/ @usuario-persona-a
+# /driver-simulator/ @usuario-persona-b
+# /notification-router/ @usuario-persona-b
+# /sms-worker/ @usuario-persona-b
+# /push-notification-worker/ @usuario-persona-b

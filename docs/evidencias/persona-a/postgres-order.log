@@ -1,0 +1,2 @@
+﻿SELECT order_id, state, driver_id FROM orders WHERE order_id = '11851ead-c486-4f27-8859-c55825df3bed';
+11851ead-c486-4f27-8859-c55825df3bed|DRIVER_ASSIGNED|driver-d0b12a85-8eba-40ba-9cbb-837c0f686b2e

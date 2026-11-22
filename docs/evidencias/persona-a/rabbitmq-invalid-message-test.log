@@ -1,0 +1,17 @@
+Prueba b) Mensaje invalido en new_orders_queue
+==============================================
+
+1. Publicacion del mensaje invalido
+Comando: docker exec rappi-stream-rabbitmq-1 rabbitmqadmin --username=rappi --password=change-me --vhost=/ publish routing_key=new_orders_queue payload='{"bad":'
+Resultado: Message published
+
+2. Log del processor
+2026-11-12T21:11:55.469Z ERROR ... OrderCommandRabbitListener : Invalid order command rejected: Unexpected character ('b' (code 98)): was expecting double-quote to start field name
+
+3. Estado posterior
+- new_orders_queue: 0 mensajes
+- new_orders_queue_dlq: 0 mensajes
+- order-processor restartCount: 0
+- readiness: {"status":"UP","components":{"db":{"status":"UP"},"kafka":{"status":"UP"},"rabbitListener":{"status":"UP","details":{"containers":1}}}}
+
+Conclusion: el mensaje invalido se rechazo con requeue=false, se registro el error, el consumer siguio vivo y RestartCount=0. Al no haber DLX activa, el mensaje se descarta.

@@ -1,0 +1,37 @@
+Prueba a) RabbitMQ detenido
+===========================
+
+1. Estado inicial
+- new_orders_queue: 0 mensajes
+- order-api restartCount=0
+- order-processor restartCount=0
+
+2. Detener RabbitMQ
+Comando: docker compose stop rabbitmq
+Resultado: Container rappi-stream-rabbitmq-1 Stopped
+
+3. POST /order valido con RabbitMQ detenido
+Comando: curl -s -w "%{http_code}" -X POST http://localhost:8082/order -H "Content-Type: application/json" -d '{"customer_id":"test-rabbit-down",...}'
+HTTP_STATUS=503
+BODY={"error":"BROKER_UNAVAILABLE","message":"The order could not be accepted because the message broker is unavailable","details":[],"timestamp":"2026-11-12T21:10:04.095334165Z"}
+Tiempo hasta respuesta: 12 s (dentro del timeout de publicacion de 5000 ms mas el reintento de conexion).
+Conclusion: no se devolvio 202; la publicacion no se confirmo y no se publico el mensaje.
+
+4. Reiniciar RabbitMQ
+Comando: docker compose start rabbitmq
+Resultado: Container rappi-stream-rabbitmq-1 Started
+Health RabbitMQ: healthy
+
+5. Health del processor sin reiniciar el contenedor
+Comando: docker exec rappi-stream-order-processor-1 wget -qO- http://localhost:8080/actuator/health/readiness
+Resultado: {"status":"UP","components":{"db":{"status":"UP",...},"kafka":{"status":"UP"},"rabbitListener":{"status":"UP","details":{"containers":1}}}}
+RestartCount processor: 0
+RestartCount order-api: 0
+
+6. POST /order valido tras la recuperacion
+HTTP_STATUS=202
+BODY={"order_id":"25728c49-c4ea-4d4b-b2b9-3742146fc6d5","status":"RECEIVED","received_at":"2026-11-12T21:11:19.817124322Z"}
+
+7. Verificacion posterior
+- new_orders_queue: 0 mensajes (el mensaje exitoso fue consumido por el processor)
+- new_orders_queue_dlq: 0 mensajes

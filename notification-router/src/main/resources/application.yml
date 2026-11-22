@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: notification-router
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${NOTIFICATION_ROUTER_GROUP_ID:notification-router-group}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.rappistream.notificationrouter.service
+        spring.json.value.default.type: com.rappistream.notificationrouter.service.NotificationRouterService$OrderEvent
+        spring.json.use.type.headers: false
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:rappi}
+    password: ${SPRING_RABBITMQ_PASSWORD:change-me}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+app:
+  kafka:
+    topic: ${KAFKA_TOPIC:order_events}
+  rabbitmq:
+    exchange: ${NOTIFICATIONS_EXCHANGE:notifications}

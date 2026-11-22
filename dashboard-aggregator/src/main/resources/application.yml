@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: dashboard-aggregator
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:dashboard-aggregator}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/rappistream}
+    username: ${SPRING_DATASOURCE_USERNAME:rappi}
+    password: ${SPRING_DATASOURCE_PASSWORD:change-me}
+  jpa:
+    hibernate:
+      ddl-auto: update
+server:
+  port: ${DASHBOARD_AGGREGATOR_PORT:8081}
+app:
+  kafka:
+    topic: ${KAFKA_TOPIC:order_events}
+  dashboard:
+    ingest-url: ${DASHBOARD_INGEST_URL:ws://localhost:8080/ws/ingest}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+

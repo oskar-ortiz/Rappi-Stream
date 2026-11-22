@@ -1,0 +1,60 @@
+{
+  "rabbit_version": "3.13.7",
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "notifications",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "new_orders_queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "sms_queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "push_queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "notifications",
+      "vhost": "/",
+      "destination": "sms_queue",
+      "destination_type": "queue",
+      "routing_key": "notify.client.*",
+      "arguments": {}
+    },
+    {
+      "source": "notifications",
+      "vhost": "/",
+      "destination": "push_queue",
+      "destination_type": "queue",
+      "routing_key": "notify.driver.*",
+      "arguments": {}
+    }
+  ]
+}

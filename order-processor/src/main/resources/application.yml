@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: order-processor
+  main:
+    web-application-type: servlet
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        spring.json.add.type.headers: false
+        enable.idempotence: true
+        retries: 10
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:rappi}
+    password: ${SPRING_RABBITMQ_PASSWORD:change-me}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/rappistream}
+    username: ${SPRING_DATASOURCE_USERNAME:rappi}
+    password: ${SPRING_DATASOURCE_PASSWORD:change-me}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+app:
+  rabbitmq:
+    queue: ${NEW_ORDERS_QUEUE:new_orders_queue}
+  kafka:
+    topic: ${KAFKA_TOPIC:order_events}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:never}
+      group:
+        readiness:
+          include: rabbitListener,db,kafka
+          show-details: always

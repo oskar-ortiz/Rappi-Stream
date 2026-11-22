@@ -1,0 +1,1 @@
+﻿POST /order válido (application/json): HTTP=202 order_id=11851ead-c486-4f27-8859-c55825df3bed body={"order_id":"11851ead-c486-4f27-8859-c55825df3bed","status":"RECEIVED","received_at":"2026-11-12T19:33:13.255070065Z"} POST /order inválido (validation): HTTP=400 POST /order con Content-Type text/plain: HTTP=415

@@ -1,0 +1,450 @@
+name: ${COMPOSE_PROJECT_NAME:-rappi-stream}
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.5
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT:-2181}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME:-2000}
+      ZOOKEEPER_4LW_COMMANDS_WHITELIST: ruok
+      ZOOKEEPER_HEAP_OPTS: ${ZOOKEEPER_HEAP_OPTS:--Xms256M -Xmx256M}
+      KAFKA_HEAP_OPTS: ${ZOOKEEPER_HEAP_OPTS:--Xms256M -Xmx256M}
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "cub zk-ready localhost:${ZOOKEEPER_CLIENT_PORT:-2181} 10"]
+      interval: 10s
+      timeout: 20s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.5
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID:-1}
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:${ZOOKEEPER_CLIENT_PORT:-2181}
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_REPLICATION_FACTOR:-1}
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: ${KAFKA_REPLICATION_FACTOR:-1}
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xms384M -Xmx384M}
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "cub kafka-ready 1 10 -b localhost:${KAFKA_INTERNAL_PORT:-29092}"]
+      interval: 10s
+      timeout: 15s
+      retries: 12
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 768M
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.5
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-order_events}
+      KAFKA_PARTITIONS: ${KAFKA_PARTITIONS:-3}
+      KAFKA_REPLICATION_FACTOR: ${KAFKA_REPLICATION_FACTOR:-1}
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    volumes:
+      - ./infra/kafka/create-topics.sh:/scripts/create-topics.sh:ro
+    networks:
+      - rappi-stream-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-rappi}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_port_listener 5672"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+
+  rabbitmq-init:
+    image: rabbitmq:3.13-management
+    restart: "no"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-rappi}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+    entrypoint: ["/bin/sh", "/scripts/import-definitions.sh"]
+    volumes:
+      - ./infra/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./infra/rabbitmq/import-definitions.sh:/scripts/import-definitions.sh:ro
+    networks:
+      - rappi-stream-network
+
+  postgres-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rappistream}
+      POSTGRES_USER: ${POSTGRES_USER:-rappi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+
+  dashboard-backend:
+    build:
+      context: .
+      dockerfile: dashboard-backend/Dockerfile
+      args:
+        MODULE: dashboard-backend
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: "8080"
+    ports:
+      - "${DASHBOARD_BACKEND_PORT:-18080}:8080"
+    networks:
+      - rappi-stream-network
+      - rappi-stream-edge
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  dashboard-aggregator:
+    build:
+      context: .
+      dockerfile: dashboard-aggregator/Dockerfile
+      args:
+        MODULE: dashboard-aggregator
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      postgres-db:
+        condition: service_healthy
+      dashboard-backend:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-order_events}
+      KAFKA_CONSUMER_GROUP_ID: dashboard-aggregator
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB:-rappistream}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rappi}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      DASHBOARD_AGGREGATOR_PORT: "8081"
+      DASHBOARD_INGEST_URL: ws://dashboard-backend:8080/ws/ingest
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+
+  order-api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: order-api/Dockerfile
+      args:
+        MODULE: order-api
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+    ports:
+      - "${ORDER_API_PORT:-8082}:8080"
+    networks:
+      - rappi-stream-network
+      - rappi-stream-edge
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  order-processor:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: order-processor/Dockerfile
+      args:
+        MODULE: order-processor
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
+      postgres-db:
+        condition: service_healthy
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT:-29092}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB:-rappistream}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-rappi}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  driver-simulator:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: driver-simulator/Dockerfile
+      args:
+        MODULE: driver-simulator
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-order_events}
+      DRIVER_SIMULATOR_GROUP_ID: ${DRIVER_SIMULATOR_GROUP_ID:-driver-simulator-group}
+      DRIVER_ARRIVING_DELAY_SECONDS: ${DRIVER_ARRIVING_DELAY_SECONDS:-5}
+      ORDER_DELIVERED_DELAY_SECONDS: ${ORDER_DELIVERED_DELAY_SECONDS:-10}
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  notification-router:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: notification-router/Dockerfile
+      args:
+        MODULE: notification-router
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT:-29092}
+      KAFKA_TOPIC: ${KAFKA_TOPIC:-order_events}
+      NOTIFICATION_ROUTER_GROUP_ID: ${NOTIFICATION_ROUTER_GROUP_ID:-notification-router-group}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      NOTIFICATIONS_EXCHANGE: ${NOTIFICATIONS_EXCHANGE:-notifications}
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  sms-worker:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: sms-worker/Dockerfile
+      args:
+        MODULE: sms-worker
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      SMS_QUEUE: ${SMS_QUEUE:-sms_queue}
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+  push-notification-worker:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: push-notification-worker/Dockerfile
+      args:
+        MODULE: push-notification-worker
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: "8080"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-rappi}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-change-me}
+      PUSH_QUEUE: ${PUSH_QUEUE:-push_queue}
+    networks:
+      - rappi-stream-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+
+networks:
+  rappi-stream-network:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-network
+    driver: bridge
+    internal: true
+  rappi-stream-edge:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-edge
+    driver: bridge
+
+volumes:
+  zookeeper-data:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-zookeeper-data
+  zookeeper-log:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-zookeeper-log
+  kafka-data:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-kafka-data
+  rabbitmq-data:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-rabbitmq-data
+  postgres-data:
+    name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-postgres-data
