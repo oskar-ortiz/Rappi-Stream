@@ -1,0 +1,222 @@
+{
+  "info": {
+    "name": "Rappi-Stream",
+    "description": "ColecciÃ³n reproducible para validar el flujo POST /order, health checks y dashboard del despliegue AWS (y local).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://34.237.124.62:8082", "type": "string" },
+    { "key": "dashboard_url", "value": "http://34.237.124.62:18080", "type": "string" },
+    { "key": "order_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01 - Health",
+      "item": [
+        {
+          "name": "Health - order-api",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/actuator/health", "host": ["{{base_url}}"], "path": ["actuator", "health"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Health is UP', function () {",
+                  "    pm.expect(pm.response.json().status).to.eql('UP');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Health - dashboard-backend",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{dashboard_url}}/actuator/health", "host": ["{{dashboard_url}}"], "path": ["actuator", "health"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Health is UP', function () {",
+                  "    pm.expect(pm.response.json().status).to.eql('UP');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Pedidos",
+      "item": [
+        {
+          "name": "Crear pedido valido",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": \"postman-check\",\n  \"customer_phone\": \"+14155552671\",\n  \"address\": \"Av. Siempre Viva 742\",\n  \"items\": [{ \"sku\": \"sku-001\", \"quantity\": 2 }]\n}"
+            },
+            "url": { "raw": "{{base_url}}/order", "host": ["{{base_url}}"], "path": ["order"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 202 Accepted', function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "pm.test('Body has order_id and RECEIVED status', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('order_id');",
+                  "    pm.expect(json.status).to.eql('RECEIVED');",
+                  "    pm.collectionVariables.set('order_id', json.order_id);",
+                  "});",
+                  "pm.test('Location header present', function () {",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include('/order/');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Telefono invalido",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": \"customer-456\",\n  \"customer_phone\": \"4155552671\",\n  \"address\": \"123 Market\",\n  \"items\": [{ \"sku\": \"sku-001\", \"quantity\": 2 }]\n}"
+            },
+            "url": { "raw": "{{base_url}}/order", "host": ["{{base_url}}"], "path": ["order"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Clean validation error without Jackson internals', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.eql('VALIDATION_ERROR');",
+                  "    pm.expect(json.details[0].field).to.eql('customerPhone');",
+                  "    pm.expect(json.details[0].reason).to.not.include('Source');",
+                  "    pm.expect(json.details[0].reason).to.not.include('Cannot construct instance');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "JSON malformado",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{bad json" },
+            "url": { "raw": "{{base_url}}/order", "host": ["{{base_url}}"], "path": ["order"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Clean invalid JSON error', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.eql('INVALID_JSON');",
+                  "    pm.expect(json.details[0].field).to.eql('$');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Content-Type text/plain",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "text/plain" }],
+            "body": { "mode": "raw", "raw": "x" },
+            "url": { "raw": "{{base_url}}/order", "host": ["{{base_url}}"], "path": ["order"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 415', function () {",
+                  "    pm.response.to.have.status(415);",
+                  "});",
+                  "pm.test('Unsupported media type error', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.eql('UNSUPPORTED_MEDIA_TYPE');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver dashboard (pedidos)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{dashboard_url}}/api/orders", "host": ["{{dashboard_url}}"], "path": ["api", "orders"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response is an array', function () {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});",
+                  "pm.test('Contains the created order', function () {",
+                  "    const orderId = pm.collectionVariables.get('order_id');",
+                  "    if (orderId) {",
+                  "        const found = pm.response.json().some(o => o.order_id === orderId);",
+                  "        pm.expect(found).to.be.true;",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
