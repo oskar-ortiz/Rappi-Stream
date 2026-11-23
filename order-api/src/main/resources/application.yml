@@ -7,7 +7,9 @@ spring:
     username: ${SPRING_RABBITMQ_USERNAME:rappi}
     password: ${SPRING_RABBITMQ_PASSWORD:change-me}
     connection-timeout: ${SPRING_RABBITMQ_CONNECTION_TIMEOUT:5000}
+    # Relaciona las confirmaciones del broker con el CorrelationData de cada publicacion.
     publisher-confirm-type: correlated
+    # Habilita devoluciones por falta de ruta junto con mandatory en RabbitTemplate.
     publisher-returns: true
 server:
   port: ${SERVER_PORT:8080}

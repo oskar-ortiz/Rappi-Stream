@@ -5,14 +5,20 @@ spring:
     web-application-type: servlet
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    # Configuracion del productor de eventos, no de los consumidores.
     producer:
+      # Clave como texto y contenido como JSON para comunicar servicios independientes.
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      # Espera replicas sincronizadas; con factor 1 no hay una copia redundante.
       acks: all
       properties:
         spring.json.add.type.headers: false
+        # Deduplica reintentos del productor, no nuevas publicaciones del negocio.
         enable.idempotence: true
+        # Reintentos de envio ante errores recuperables.
         retries: 10
+  # Conexion al broker de comandos; el ACK manual se configura en RabbitConfig.java.
   rabbitmq:
     host: ${SPRING_RABBITMQ_HOST:localhost}
     port: ${SPRING_RABBITMQ_PORT:5672}

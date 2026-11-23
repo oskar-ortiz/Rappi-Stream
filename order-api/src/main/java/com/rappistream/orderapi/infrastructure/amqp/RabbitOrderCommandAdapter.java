@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
+// Adaptador de salida: implementa el puerto del negocio usando RabbitMQ.
+// Spring inyecta por constructor el cliente RabbitTemplate y el serializador ObjectMapper.
 @Component
 public class RabbitOrderCommandAdapter implements NewOrderCommandPort {
 
@@ -38,21 +40,29 @@ public class RabbitOrderCommandAdapter implements NewOrderCommandPort {
     public void publish(OrderCreatedCommand command) {
         final String json;
         try {
+            // Convierte el objeto Java a JSON para comunicar procesos con memorias independientes.
             json = objectMapper.writeValueAsString(command);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Unable to serialize order command", e);
         }
+        // Asocia la publicacion con su confirmacion; no elimina duplicados.
         org.springframework.amqp.rabbit.connection.CorrelationData correlationData =
                 new org.springframework.amqp.rabbit.connection.CorrelationData(command.orderId());
+        // Cuerpo en bytes UTF-8 y tipo JSON. PERSISTENT se complementa con una cola durable.
+        // messageId identifica el pedido; RabbitMQ no deduplica automaticamente por este valor.
         Message message = MessageBuilder.withBody(json.getBytes(StandardCharsets.UTF_8))
                 .setContentType(MessageProperties.CONTENT_TYPE_JSON)
                 .setDeliveryMode(MessageDeliveryMode.PERSISTENT)
                 .setMessageId(command.orderId())
                 .build();
         try {
+            // Exchange vacio: exchange predeterminado. La routing key es el nombre de la cola.
             rabbitTemplate.send("", queueName, message, correlationData);
+            // Espera hasta 5000 ms por defecto. Confirma publicacion, no procesamiento del consumidor.
+            // Un timeout no demuestra que el mensaje nunca llego al broker.
             org.springframework.amqp.rabbit.connection.CorrelationData.Confirm confirm =
                     correlationData.getFuture().get(confirmTimeoutMs, TimeUnit.MILLISECONDS);
+            // Aqui se revisa el ACK, pero no un posible mensaje devuelto por falta de ruta.
             if (confirm == null || !confirm.isAck()) {
                 throw new BrokerUnavailableException("Broker did not confirm publication");
             }
