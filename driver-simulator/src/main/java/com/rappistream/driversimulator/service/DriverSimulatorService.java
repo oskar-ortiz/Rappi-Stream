@@ -35,9 +35,11 @@ public class DriverSimulatorService {
         this.deliveredDelaySeconds = deliveredDelaySeconds;
     }
 
+    // Consume con un grupo independiente del dashboard y del router.
     @KafkaListener(topics = "${app.kafka.topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void listen(ConsumerRecord<String, DriverEvent> record) {
         DriverEvent event = record.value();
+        // Solo inicia viajes por asignaciones; ignora sus propios eventos de llegada y entrega.
         if (!"DRIVER_ASSIGNED".equals(event.eventType())) {
             return;
         }
@@ -45,6 +47,8 @@ public class DriverSimulatorService {
         scheduleTrip(event);
     }
 
+    // Las dos demoras se cuentan desde la programacion; una tarea no espera a la otra.
+    // Las tareas estan en memoria y se pierden si el proceso termina antes de ejecutarlas.
     void scheduleTrip(DriverEvent assignment) {
         executor.schedule(() -> publishOrderEvent("DRIVER_ARRIVING", assignment), arrivingDelaySeconds, TimeUnit.SECONDS);
         executor.schedule(() -> publishOrderEvent("ORDER_DELIVERED", assignment), deliveredDelaySeconds, TimeUnit.SECONDS);
@@ -53,12 +57,15 @@ public class DriverSimulatorService {
     void publishOrderEvent(String eventType, DriverEvent assignment) {
         DriverEvent event = new DriverEvent(eventType, assignment.orderId(), assignment.driverId(), Instant.now());
         try {
+            // Reutiliza orderId como clave. Espera el envio, no el procesamiento de consumidores.
             kafkaTemplate.send(orderEventsTopic, assignment.orderId(), event).get(10, TimeUnit.SECONDS);
         } catch (Exception e) {
+            // Registra el error; este bloque no vuelve a programar la tarea fallida.
             LOGGER.error("Failed to publish {} for order {}", eventType, assignment.orderId(), e);
         }
     }
 
+    // Contrato JSON: JsonProperty relaciona nombres Java con campos compartidos entre servicios.
     public record DriverEvent(
             @JsonProperty("event_type")
             String eventType,
