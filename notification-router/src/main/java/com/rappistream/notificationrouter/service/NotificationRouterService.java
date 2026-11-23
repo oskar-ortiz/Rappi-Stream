@@ -24,17 +24,23 @@ public class NotificationRouterService {
         this.exchange = exchange;
     }
 
+    // Puente: consume hechos de Kafka y publica tareas de notificacion en RabbitMQ.
     @KafkaListener(topics = "${app.kafka.topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void onEvent(OrderEvent event) {
         if (event == null) {
             throw new IllegalArgumentException("order event is required");
         }
 
+        // Selecciona por polimorfismo la estrategia que soporta el tipo de evento.
         NotificationCommandPort commandPort = notificationCommandResolver.resolve(event);
+        // Construye los datos que necesita el worker segun la estrategia elegida.
         var payload = commandPort.toPayload(event);
+        // El exchange y los bindings enrutan por routingKey a SMS o push.
+        // Publicar no significa que el worker ya haya enviado la notificacion.
         rabbitTemplate.convertAndSend(exchange, commandPort.routingKey(), payload);
     }
 
+    // Contrato de entrada: el constructor compacto valida los campos obligatorios.
     public record OrderEvent(
             @JsonProperty("event_type") String eventType,
             @JsonProperty("order_id") String orderId,

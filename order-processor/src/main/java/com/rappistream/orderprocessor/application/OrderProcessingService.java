@@ -18,6 +18,7 @@ public class OrderProcessingService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderProcessingService.class);
 
+    // Interfaces: el negocio no depende directamente de las implementaciones JPA y Kafka.
     private final OrderRepositoryPort orderRepository;
     private final OrderEventPublisherPort eventPublisher;
     private final DriverAssignmentStrategy driverAssignmentStrategy;
@@ -31,17 +32,16 @@ public class OrderProcessingService {
     }
 
     /**
-     * Idempotent processing of a new-order command.
+     * Procesa comandos contemplando entregas repetidas de RabbitMQ.
+     * Si el pedido no existe, guarda CREATED, publica y guarda DRIVER_ASSIGNED.
+     * Si sigue en CREATED, reintenta; si ya esta en DRIVER_ASSIGNED, evita republicar.
      *
-     * RabbitMQ delivers each command at least once, so redeliveries must be safe:
-     * - Order not found: persist it as CREATED (publication intent), publish DRIVER_ASSIGNED,
-     *   and only then persist the DRIVER_ASSIGNED state.
-     * - Order found in CREATED: a previous delivery persisted it but its publication was not
-     *   confirmed (for example during a Kafka outage); publish and mark DRIVER_ASSIGNED.
-     * - Order found in DRIVER_ASSIGNED: the event was already published on an earlier
-     *   delivery; do not publish again so the caller can ack the redelivered message.
+     * No garantiza exactamente una vez: si Kafka recibe el evento pero falla el
+     * guardado final, otro intento puede publicarlo nuevamente. Tampoco hay aqui
+     * un bloqueo para coordinar dos ejecuciones simultaneas del mismo pedido.
      */
     public void process(OrderCreatedCommand command) {
+        // Consulta el estado persistido para reconocer pedidos ya procesados.
         Order existing = orderRepository.findById(command.orderId()).orElse(null);
         if (existing != null && existing.state() == OrderState.DRIVER_ASSIGNED) {
             LOGGER.warn("Duplicate delivery for order {}: already DRIVER_ASSIGNED, skipping re-publication",
@@ -52,6 +52,7 @@ public class OrderProcessingService {
             LOGGER.info("Republishing DRIVER_ASSIGNED for order {} whose previous publication was not confirmed",
                     command.orderId());
         }
+        // Recupera el pedido pendiente o guarda su estado inicial CREATED.
         Order order = existing != null
                 ? existing
                 : orderRepository.save(Order.create(
@@ -63,12 +64,16 @@ public class OrderProcessingService {
                                 .map(i -> new OrderItem(i.sku(), i.quantity()))
                                 .toList(),
                         command.createdAt()));
+        // Asigna conductor y modifica el estado del objeto en memoria mediante una estrategia.
         driverAssignmentStrategy.assignDriver(order);
+        // El comando produce un hecho: DRIVER_ASSIGNED, consumible por otros servicios.
         OrderEvent event = new OrderEvent(
                 "DRIVER_ASSIGNED",
                 order.orderId(),
                 order.driverId(),
                 Instant.now());
+        // Publica primero y luego persiste el estado final. Una excepcion llega al listener.
+        // Esta secuencia no es una transaccion atomica entre Kafka y la base de datos.
         eventPublisher.publish(event);
         orderRepository.save(order);
     }

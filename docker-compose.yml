@@ -1,8 +1,12 @@
+# Despliegue local de procesos separados conectados por la red Docker.
+# La sintaxis de variables permite usar valores por defecto cuando no hay un valor externo.
 name: ${COMPOSE_PROJECT_NAME:-rappi-stream}
 
 services:
+  # Coordina metadatos del broker Kafka en esta configuracion.
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.5
+    # Reinicia salvo detencion manual; no reemplaza la recuperacion de tareas del negocio.
     restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT:-2181}
@@ -21,15 +25,18 @@ services:
       timeout: 20s
       retries: 10
       start_period: 30s
+    # Limita recursos de CPU y memoria del contenedor.
     deploy:
       resources:
         limits:
           cpus: "0.50"
           memory: 384M
 
+  # Un solo broker de eventos; las particiones no equivalen a brokers adicionales.
   kafka:
     image: confluentinc/cp-kafka:7.5.5
     restart: unless-stopped
+    # Espera salud durante el arranque; no garantiza disponibilidad continua.
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -37,6 +44,7 @@ services:
       KAFKA_BROKER_ID: ${KAFKA_BROKER_ID:-1}
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:${ZOOKEEPER_CLIENT_PORT:-2181}
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:${KAFKA_INTERNAL_PORT:-29092}
+      # Direccion anunciada a los clientes dentro de Docker; kafka es el nombre del servicio.
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:${KAFKA_INTERNAL_PORT:-29092}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -61,6 +69,7 @@ services:
           cpus: "1.00"
           memory: 768M
 
+  # Tarea de inicializacion: espera al broker y crea el topic.
   kafka-init:
     image: confluentinc/cp-kafka:7.5.5
     restart: "no"
@@ -78,6 +87,7 @@ services:
     networks:
       - rappi-stream-network
 
+  # Broker de comandos y notificaciones con datos en volumen persistente.
   rabbitmq:
     image: rabbitmq:3.13-management
     restart: unless-stopped
@@ -101,6 +111,7 @@ services:
           cpus: "0.75"
           memory: 512M
 
+  # Importa exchanges, colas y bindings desde definitions.json.
   rabbitmq-init:
     image: rabbitmq:3.13-management
     restart: "no"
@@ -118,6 +129,7 @@ services:
     networks:
       - rappi-stream-network
 
+  # Persistencia del negocio y del historial, separada de Kafka.
   postgres-db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -142,6 +154,7 @@ services:
           cpus: "0.75"
           memory: 512M
 
+  # Recibe actualizaciones y las distribuye al navegador mediante WebSocket.
   dashboard-backend:
     build:
       context: .
@@ -168,6 +181,7 @@ services:
           cpus: "0.50"
           memory: 384M
 
+  # Consume Kafka en su propio grupo y reconstruye la vista de pedidos.
   dashboard-aggregator:
     build:
       context: .
@@ -207,6 +221,7 @@ services:
           cpus: "0.50"
           memory: 512M
 
+  # Entrada HTTP: publica comandos RabbitMQ. Se activa con --profile full.
   order-api:
     profiles: ["full"]
     build:
@@ -243,6 +258,7 @@ services:
           cpus: "0.50"
           memory: 384M
 
+  # Consume RabbitMQ, persiste pedidos y publica eventos Kafka.
   order-processor:
     profiles: ["full"]
     build:
@@ -285,6 +301,7 @@ services:
           cpus: "0.50"
           memory: 384M
 
+  # Consume asignaciones y programa eventos de llegada y entrega.
   driver-simulator:
     profiles: ["full"]
     build:
@@ -319,6 +336,7 @@ services:
           cpus: "0.50"
           memory: 384M
 
+  # Consume Kafka en otro grupo y publica tareas RabbitMQ.
   notification-router:
     profiles: ["full"]
     build:
@@ -358,6 +376,7 @@ services:
           cpus: "0.50"
           memory: 384M
 
+  # Consumidores de sms_queue que se reparten el trabajo.
   sms-worker:
     profiles: ["full"]
     build:
@@ -387,12 +406,14 @@ services:
       retries: 6
       start_period: 30s
     deploy:
+      # Dos workers se reparten entregas de la misma cola; no duplican cada notificacion.
       replicas: 2
       resources:
         limits:
           cpus: "0.50"
           memory: 384M
 
+  # Consumidores de push_queue, independientes de la cola SMS.
   push-notification-worker:
     profiles: ["full"]
     build:
@@ -428,6 +449,7 @@ services:
           cpus: "0.50"
           memory: 384M
 
+# Red interna para brokers y servicios; red edge para los servicios con acceso exterior.
 networks:
   rappi-stream-network:
     name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-network
@@ -437,6 +459,7 @@ networks:
     name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-edge
     driver: bridge
 
+# Conservan datos al recrear contenedores. Persistencia no equivale a alta disponibilidad.
 volumes:
   zookeeper-data:
     name: ${COMPOSE_PROJECT_NAME:-rappi-stream}-zookeeper-data

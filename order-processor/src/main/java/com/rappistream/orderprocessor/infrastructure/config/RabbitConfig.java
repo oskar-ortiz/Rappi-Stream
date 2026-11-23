@@ -20,6 +20,8 @@ public class RabbitConfig {
         return QueueBuilder.durable(queueName).build();
     }
 
+    // Declarar el DLX y su cola no conecta automaticamente la cola original con ellos.
+    // new_orders_queue necesita argumentos o una politica de dead-letter para enviar rechazos aqui.
     @Bean
     public DirectExchange deadLetterExchange() {
         return new DirectExchange("new_orders_dlx");
@@ -41,7 +43,9 @@ public class RabbitConfig {
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
+        // El listener decide explicitamente cuando confirmar, rechazar o reencolar.
         factory.setAcknowledgeMode(org.springframework.amqp.core.AcknowledgeMode.MANUAL);
+        // Politica del contenedor; basicNack(..., true) solicita reencolar explicitamente.
         factory.setDefaultRequeueRejected(false);
         return factory;
     }
